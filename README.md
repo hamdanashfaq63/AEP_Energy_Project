@@ -5,7 +5,7 @@ PJM Energy Use Forecast Analysis
 This project analyzes forecast data and its accuracy. We want to show the top five peak hours of each year, with high accuracy percentage so that AEP Energy can notify customers in advance in order to reduce energy costs. Our goal is to analyze the precision of the PJM Interconnection Forecast data while merging weather data to ensure the most precise prediction possible. 
 
 Motivation
-This section is to let the reader know why you created this project, the reason behind pursuing such a project, and why you have decided to do it.
+We want to minimize the energy demand and costs from AEP Energy customers. This project will allow notifications to be sent out to enable the customers to decrease energy consumption during specific peak hours to minimize their transaction fees.
 
 Author(s)
 Denison Data Analytics Team: Luke Olmstead, Natalie Fierberg, Hamdan Ashfaq, Daniel Ha
