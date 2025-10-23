@@ -1,8 +1,8 @@
 # AEP_Energy_Project
 A predictive modeling DA 301 project collaborating with AEP Energy.
 
-Project Title
-A little brief about what the project is about. It should be like a small summary format informing about the main purpose of the project.
+PJM Energy Use Forecast Analysis
+This project analyzes forecast data and its accuracy. We want to show the top five peak hours of each year, with high accuracy percentage so that AEP Energy can notify customers in advance in order to reduce energy costs. Our goal is to analyze the precision of the PJM Interconnection Forecast data while merging weather data to ensure the most precise prediction possible. 
 
 Motivation
 This section is to let the reader know why you created this project, the reason behind pursuing such a project, and why you have decided to do it.
