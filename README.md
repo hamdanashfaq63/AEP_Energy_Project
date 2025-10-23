@@ -8,11 +8,11 @@ Motivation
 This section is to let the reader know why you created this project, the reason behind pursuing such a project, and why you have decided to do it.
 
 Author(s)
-Who is contributing to this project? Your names go here. And you might note who/what is overseeing the project (i.e. they contribute ideas and/or foundation)
+Denison Data Analytics Team: Luke Olmstead, Natalie Fierberg, Hamdan Ashfaq, Daniel Ha
+AEP ENERGY Collarborators/Overseers: Frederick Bergstrand, Joshua A Brown
 
 Build Status
 This basically explains the current build status of the project. If there is a bug /error which needs addressing. This is done so for two different reasons: The user understands that this is an issue and does not spend more time figuring if it was a mistake on their part. A developer who is familiar with the issue can suggest some solutions directly without going through the whole code. It might be as simple as “under development”.
-
 
 Requirements
 What does someone need to run your code? Do they need to have R and if so, what version? Another program? Are there specific packages that need to be installed? Is anything else needed to run the analysis, access the data, and/or view the output?
