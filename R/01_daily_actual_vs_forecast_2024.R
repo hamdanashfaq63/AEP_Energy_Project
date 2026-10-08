@@ -1,9 +1,18 @@
+# Daily actual vs. forecast load, PJM RTO, 2024
+# Author: Hamdan Ashfaq
+#
+# Aggregates hourly PJM actual load and historical forecasts to daily totals,
+# computes the daily difference, and plots the five highest load days.
+# Inputs (download from PJM Data Miner, see data/README.md):
+#   data/2024_Actual_Load.csv
+#   data/load_frcstd_hist.csv
+
 #actually happened data
 library(readr)
-X2024_Actual_Load <- read_csv("Documents/DA 301/2024_Actual_Load.csv")
+X2024_Actual_Load <- read_csv("data/2024_Actual_Load.csv")
 #forecasted Data
 library(readr)
-load_frcstd_hist <- read_csv("Documents/DA 301/load_frcstd_hist.csv")
+load_frcstd_hist <- read_csv("data/load_frcstd_hist.csv")
 ###########################################################################
 
 
@@ -22,7 +31,7 @@ head(load_frcstd_hist)
 library(dplyr)
 library(lubridate)
 
-# 1️⃣ Clean and filter actual data for RTO zone
+# 1. Clean and filter actual data for RTO zone
 actual_daily <- X2024_Actual_Load %>%
   filter(zone == "RTO") %>%   # only RTO zone
   select(datetime_beginning_ept, mw) %>%
@@ -34,7 +43,7 @@ actual_daily <- X2024_Actual_Load %>%
   summarise(total_actual_mw = sum(mw, na.rm = TRUE)) %>%
   ungroup()
 
-# 2️⃣ Clean forecast data
+# 2. Clean forecast data
 forecast_daily <- load_frcstd_hist %>%
   select(forecast_hour_beginning_ept, forecast_area, forecast_load_mw) %>%
   # if forecast_area matches RTO, filter it; otherwise adapt this line
@@ -47,24 +56,24 @@ forecast_daily <- load_frcstd_hist %>%
   summarise(total_forecast_mw = sum(forecast_load_mw, na.rm = TRUE)) %>%
   ungroup()
 
-# 3️⃣ Combine actual and forecast data by date
+# 3. Combine actual and forecast data by date
 daily_comparison <- actual_daily %>%
   left_join(forecast_daily, by = "date") %>%
   mutate(diff_mw = total_actual_mw - total_forecast_mw)
 
-# 4️⃣ View result
+# 4. View result
 head(daily_comparison)
 #######################################################################
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-# 1️⃣ Get the top 5 days by actual usage
+# 1. Get the top 5 days by actual usage
 top5_days <- daily_comparison %>%
   arrange(desc(total_actual_mw)) %>%
   slice_head(n = 5)
 
-# 2️⃣ Reshape for plotting (long format)
+# 2. Reshape for plotting (long format)
 top5_long <- top5_days %>%
   pivot_longer(
     cols = c(total_actual_mw, total_forecast_mw),
@@ -72,7 +81,7 @@ top5_long <- top5_days %>%
     values_to = "mw"
   )
 
-# 3️⃣ Plot
+# 3. Plot
 ggplot(top5_long, aes(x = as.factor(date), y = mw, fill = type)) +
   geom_col(position = "dodge") +
   labs(

@@ -1,3 +1,10 @@
+# Forecast bias tests and load heatmaps, PJM RTO
+# Author: Daniel Ha (DA 301 team)
+#
+# Paired t-tests of actual vs. forecast load (overall and by forecast horizon),
+# a chi-square test on categorized load, forecast bias by hour of day, and the
+# weekly load heatmap. Inputs are described in data/README.md.
+
 # July - October, 2025 t-test
 library(tidyverse)
 library(httr2)
@@ -8,8 +15,8 @@ library(ggplot2)
 # -------------------------------------------------------------
 
 # Read actual metered load dataset
-actual_df1 <- read_csv("hour_load_metered.csv")
-forecast_df1 <- read_csv("forecasted_hourly_transmission_load.csv")
+actual_df1 <- read_csv("data/hour_load_metered.csv")
+forecast_df1 <- read_csv("data/forecasted_hourly_transmission_load.csv")
 
 # -------------------------------------------------------------
 # 2. DATETIME PARSING
@@ -25,7 +32,7 @@ forecast_df1 <- forecast_df1 %>%
 # -------------------------------------------------------------
 # 3. FILTER TO RTO REGION ONLY
 # -------------------------------------------------------------
-# Convert actual timestamps from character → POSIXct (MDY_HMS format)
+# Convert actual timestamps from character -> POSIXct (MDY_HMS format)
 actual_df1_rto <- actual_df1 %>%
   filter(zone == "RTO")
 
@@ -46,13 +53,14 @@ forecast_df1_rto <- forecast_df1 %>%
 #   actual_df1$zone                    == forecast_df1_rto$forecast_area
 #
 # After merge:
-#   mw                → actual observed load (MW)
-#   forecast_load_mw  → forecasted load (MW)
+#   mw                -> actual observed load (MW)
+#   forecast_load_mw  -> forecasted load (MW)
 
 merged_df1 <- actual_df1 %>%
   inner_join(forecast_df1_rto,
              by = c("datetime_beginning_ept" = "forecast_datetime_beginning_ept",
-                    "zone" = "forecast_area"))
+                    "zone" = "forecast_area")) %>%
+  mutate(error = mw - forecast_load_mw)
 
 # -------------------------------------------------------------
 # 5. PAIRED t-TEST: ACTUAL vs FORECAST MW
@@ -63,7 +71,7 @@ merged_df1 <- actual_df1 %>%
 #     - one forecast MW value
 # July - October, 2025 t-test
 t.test(merged_df1$mw, merged_df1$forecast_load_mw, paired = TRUE)
-#The model underpredicts megawatts by 970
+
 
 # -------------------------------------------------------------
 # 6. CHI-SQUARE TEST: CATEGORIZED LOAD (LOW / MED / HIGH)
@@ -74,31 +82,27 @@ rto_df1 <- merged_df1 %>%
     actual_cat = cut(mw, breaks = 3, labels = c("Low", "Med", "High")),
     forecast_cat = cut(forecast_load_mw, breaks = 3, labels = c("Low", "Med", "High"))
   )
-chisq.test(tbl)  
-  t.test(merged_df1$mw, merged_df1$forecast_load_mw, paired = TRUE)
-
-
-
-
+tbl <- table(rto_df1$actual_cat, rto_df1$forecast_cat)
+chisq.test(tbl)
 
 
 # -------------------------------------------------------------------------
 # FORECAST ERROR VISUALIZATION
-# Plot: Forecast Error Over Time (Actual - Forecast), July–October 2025
+# Plot: Forecast Error Over Time (Actual - Forecast), July to October 2025
 #
 # Purpose:
-#   This plot shows how the forecasting error evolves over the July–October
+#   This plot shows how the forecasting error evolves over the July to October
 #   2025 period. The "error" variable should be defined as:
 #         error = actual_mw - forecast_mw
-#   Positive values → Forecast UNDERpredicts demand.
-#   Negative values → Forecast OVERpredicts demand.
+#   Positive values -> Forecast UNDERpredicts demand.
+#   Negative values -> Forecast OVERpredicts demand.
 #
 # Visualization choices:
-#   - geom_line()    → Shows high-frequency hour-by-hour variation.
-#   - alpha = 0.4    → Slight transparency reduces noise and visual clutter.
-#   - geom_smooth()  → LOESS curve highlights the overall trend in errors
+#   - geom_line()    -> Shows high-frequency hour-by-hour variation.
+#   - alpha = 0.4    -> Slight transparency reduces noise and visual clutter.
+#   - geom_smooth()  -> LOESS curve highlights the overall trend in errors
 #                      (e.g., seasonal drift, systematic bias).
-#   - red smoothing line → Makes long-term bias visually obvious.
+#   - red smoothing line -> Makes long-term bias visually obvious.
 # -------------------------------------------------------------------------
 #Forecast Error Over Time(Actual - Forecast) July-October 2025
 merged_df1 %>%
@@ -112,13 +116,6 @@ merged_df1 %>%
        y="MegaWatt Error", x ="Months")
 
 
-
-
-
-
-
-
-
 # -------------------------------------------------------------------------
 # FORECAST BIAS BY HOUR OF DAY (Actual - Forecast)
 #
@@ -128,8 +125,8 @@ merged_df1 %>%
 #   underpredict or overpredict during specific times of day.
 #
 #   error = actual_mw - forecasted_mw
-#   Positive mean error  → Underprediction (actual > forecast)
-#   Negative mean error  → Overprediction (actual < forecast)
+#   Positive mean error  -> Underprediction (actual > forecast)
+#   Negative mean error  -> Overprediction (actual < forecast)
 #
 # Steps:
 #   1. Compute hourly error for each timestamp.
@@ -147,7 +144,7 @@ rto_df1 <- rto_df1 %>%
   mutate(hour = lubridate::hour(datetime_beginning_ept))
 
 # Step 3: Compute average forecast bias for each hour of the day
-#   - group_by(hour): groups all timestamps by their hour (0–23)
+#   - group_by(hour): groups all timestamps by their hour (0-23)
 hourly_bias <- rto_df1 %>%
   group_by(hour) %>%
   summarise(mean_error = mean(error), .groups = "drop")
@@ -165,8 +162,8 @@ hourly_bias
 #   - Horizontal line at y = 0: separates underprediction vs. overprediction.
 #
 # Interpretation:
-#   - Points above the zero line → Model underpredicts load.
-#   - Points below the zero line → Model overpredicts load.
+#   - Points above the zero line -> Model underpredicts load.
+#   - Points below the zero line -> Model overpredicts load.
 #   - Consistent patterns suggest structural bias (e.g., evening ramp).
 # -------------------------------------------------------------------------
 
@@ -179,16 +176,6 @@ ggplot(hourly_bias, aes(x = hour, y = mean_error)) +
     y = "Mean Error (MW)"
   ) +
   theme_minimal()
-
-
-
-
-
-
-
-
-
-
 
 
 # -------------------------------------------------------------------
@@ -212,7 +199,7 @@ library(forcats)
 # -------------------------------------------------------------------
 # 1) READ DATA
 # -------------------------------------------------------------------
-df <- read_csv("actual_Load.csv")
+df <- read_csv("data/actual_Load.csv")
                       
 # -------------------------------------------------------------------
 # 2) PARSE TIME & DERIVE TIME FEATURES
@@ -225,10 +212,10 @@ df <- df %>%
                                orders = c("mdy HMS", "mdY IMS p")),
      # Extract just the date part (no time component)
     date = as_date(datetime),
-    # Hour of day as integer 0–23 (based on parsed datetime)
+    # Hour of day as integer 0-23 (based on parsed datetime)
     hour = hour(datetime),
     wday = wday(datetime, label = TRUE, abbr = FALSE, week_start = 1)
-    # Monday = 1, labels "Monday","Tuesday",…,"Sunday"
+    # Monday = 1, labels "Monday","Tuesday",...,"Sunday"
   )
 
 # -------------------------------------------------------------------
@@ -243,7 +230,7 @@ rto <- df %>%
   filter(!is.na(mw))
 
 # -------------------------------------------------------------------
-# 4) AVERAGE LOAD BY WEEKDAY × HOUR
+# 4) AVERAGE LOAD BY WEEKDAY x HOUR
 # -------------------------------------------------------------------
 #4) average load by weekday & hour
 heat <- rto %>%
@@ -256,9 +243,9 @@ heat <- rto %>%
 # -------------------------------------------------------------------
 
 # Create a heatmap:
-#   - x-axis   → Weekday (Monday–Sunday)
-#   - y-axis   → Hour of day (0–23); reversed so midnight is at bottom
-#   - fill     → Average MW (color intensit
+#   - x-axis   -> Weekday (Monday to Sunday)
+#   - y-axis   -> Hour of day (0-23); reversed so midnight is at bottom
+#   - fill     -> Average MW (color intensit
 #5) heatmap
 p <- ggplot(heat, aes(x = wday, y = hour, fill = avg_mw)) +
   geom_tile(color = "white", linewidth = 0.2) +
@@ -285,19 +272,8 @@ print(p)
 ggsave("heatmap_RTO_weekly_pattern.png", p, width = 10, height = 7, dpi = 300)
 
 
-
-
-
-
-
-
-
-
-
-
-
 # -------------------------------------------------------------------------
-# Paired t-tests for Forecast Accuracy at 24–32 hr and 40–48 hr Horizons
+# Paired t-tests for Forecast Accuracy at 24-32 hr and 40-48 hr Horizons
 #
 # Goal:
 #   Evaluate forecast bias at two forecast horizons by comparing
@@ -307,13 +283,13 @@ ggsave("heatmap_RTO_weekly_pattern.png", p, width = 10, height = 7, dpi = 300)
 #   - Convert timestamps
 #   - Filter to RTO zone only
 #   - Compute forecast horizons (difference between forecast time and evaluation time)
-#   - Extract only forecasts within two windows: 24–32 hr and 40–48 hr
+#   - Extract only forecasts within two windows: 24-32 hr and 40-48 hr
 #   - Join forecast and actual loads by timestamp
 #   - Run paired t-tests for each window
 #
 # Interpretation of the paired t-test:
-#   H0: mean(actual − forecast) = 0   → No systematic bias
-#   H1: mean(actual − forecast) ≠ 0   → Forecasts are biased (over/under)
+#   H0: mean(actual - forecast) = 0   -> No systematic bias
+#   H1: mean(actual - forecast) != 0   -> Forecasts are biased (over/under)
 #
 # -------------------------------------------------------------------------
 #Paired t-test (24-32 hour interval)  (40-48hour interval)!
@@ -325,8 +301,8 @@ library(forcats)
 # -------------------------------------------------------------------------
 # 1. LOAD RAW DATA
 # -------------------------------------------------------------------------
-actual_df <- read_csv("hour_load_metered.csv", show_col_types = FALSE)
-forecast_df <- read_csv("forecasted_hourly_transmission_load.csv", show_col_types = FALSE)
+actual_df <- read_csv("data/hour_load_metered.csv", show_col_types = FALSE)
+forecast_df <- read_csv("data/forecasted_hourly_transmission_load.csv", show_col_types = FALSE)
 
 # -------------------------------------------------------------------------
 # 2. PARSE TIMESTAMPS SAFELY
@@ -360,7 +336,7 @@ forecast_rto <- forecast_df  %>%
 # 4. SLICE FORECASTS BY HORIZON WINDOW
 # -------------------------------------------------------------------------
 
-# ---- 24–32 hour window ---------------------------------------------------
+# ---- 24-32 hour window ---------------------------------------------------
 # Filter forecasts whose horizon is between 24 and 32 hours
 # Sort so the first forecast in each horizon group is kept
 forecast_24_32 <- forecast_rto %>%
@@ -370,7 +346,7 @@ forecast_24_32 <- forecast_rto %>%
   slice(1) %>%          # keep the closest-ahead forecast
   ungroup()
 
-# ---- 40–48 hour window ---------------------------------------------------
+# ---- 40-48 hour window ---------------------------------------------------
 forecast_40_48 <- forecast_rto %>%
   filter(horizon_hours >=40, horizon_hours <= 48) %>%
   arrange(forecast_datetime_beginning_ept, horizon_hours) %>%
@@ -382,7 +358,7 @@ forecast_40_48 <- forecast_rto %>%
 # 5. JOIN FORECASTS WITH ACTUAL LOAD
 # -------------------------------------------------------------------------
 
-# ---- Create matched actual-forecast dataframe for 24–32 hr ---------------
+# ---- Create matched actual-forecast dataframe for 24-32 hr ---------------
 df_24_32 <- forecast_24_32 %>%
   inner_join(actual_rto, by = c("forecast_datetime_beginning_ept" = "datetime_beginning_ept")) %>%
   rename(
@@ -395,7 +371,7 @@ df_24_32 <- forecast_24_32 %>%
     abs_error_24_32 = abs(error_24_32)
   )
 
-# ---- Create matched actual-forecast dataframe for 40–48 hr ---------------
+# ---- Create matched actual-forecast dataframe for 40-48 hr ---------------
 df_40_48 <- forecast_40_48 %>%
   inner_join(actual_rto, by = c("forecast_datetime_beginning_ept" = "datetime_beginning_ept")) %>%
   rename(
@@ -412,7 +388,7 @@ df_40_48 <- forecast_40_48 %>%
 # 6. PAIRED t-TESTS FOR EACH HORIZON
 # -------------------------------------------------------------------------
 
-# ---- 24–32 hour horizon paired t-test ------------------------------------
+# ---- 24-32 hour horizon paired t-test ------------------------------------
 t_test_paired_24_32 <- t.test(
   df_24_32$actual,
   df_24_32$forecast,
@@ -420,7 +396,7 @@ t_test_paired_24_32 <- t.test(
 )
 t_test_paired_24_32
 
-# ---- 40–48 hour horizon paired t-test ------------------------------------
+# ---- 40-48 hour horizon paired t-test ------------------------------------
 t_test_paired_40_48 <- t.test(
   df_40_48$actual,
   df_40_48$forecast,
@@ -430,18 +406,15 @@ t_test_paired_40_48
 # -------------------------------------------------------------------------
 # Interpretation Guide:
 #
-# If mean(actual − forecast) > 0 → Model underpredicts load.
-# If mean(actual − forecast) < 0 → Model overpredicts load.
+# If mean(actual - forecast) > 0 -> Model underpredicts load.
+# If mean(actual - forecast) < 0 -> Model overpredicts load.
 #
 # Compare:
 #   - p-values: Are the biases statistically significant?
 #   - mean differences: How large is the average bias?
 #   - confidence intervals: Are they consistently above or below zero?
 #
-# Larger horizons (40–48 hr) typically show more bias due to uncertainty.
+# Larger horizons (40-48 hr) typically show more bias due to uncertainty.
 # -------------------------------------------------------------------------
-
-
-
 
 
